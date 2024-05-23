@@ -1,0 +1,63 @@
+definitions:
+  steps:
+    - step: &set-environment
+        name: Set Environment
+        artifacts:
+          - set-environment.sh
+    - step: &build-and-push
+        name: Docker Build and Push
+        image:
+          name: prjcicdacr.azurecr.io/prj-cicd:1.0.0-node
+          username: $AZURE_CICD_ACR_USERNAME
+          password: $AZURE_CICD_ACR_PASSWORD
+        services:
+          - docker
+        script:
+          - source ./set-environment.sh
+          - echo ${ENVIRONMENT}
+          - AZURE_CICD_USERNAME_VARIABLE_NAME="AZURE_CICD_USERNAME_${ENVIRONMENT^^}"
+          - AZURE_CICD_PASSWORD_VARIABLE_NAME="AZURE_CICD_PASSWORD_${ENVIRONMENT^^}"
+          - AZURE_CICD_TENANT_VARIABLE_NAME="AZURE_CICD_TENANT_${ENVIRONMENT^^}"
+          - AZURE_ACR_NAME_VARIABLE_NAME="AZURE_ACR_${ENVIRONMENT^^}" # format of variables setup in bitbucket pipelines VARIABLE_NAME_{DEV/STAGING/PROD}
+
+          - AZURE_CICD_USERNAME=${!AZURE_CICD_USERNAME_VARIABLE_NAME}
+          - AZURE_CICD_PASSWORD=${!AZURE_CICD_PASSWORD_VARIABLE_NAME}
+          - AZURE_CICD_TENANT=${!AZURE_CICD_TENANT_VARIABLE_NAME}
+          - AZURE_ACR_NAME=${!AZURE_ACR_NAME_VARIABLE_NAME}
+
+          - az login --service-principal -u $AZURE_CICD_USERNAME -p $AZURE_CICD_PASSWORD --tenant $AZURE_CICD_TENANT
+          - az acr login --name $AZURE_ACR_NAME
+
+          - REGISTRY_SERVER="${AZURE_ACR_NAME}.azurecr.io"
+          - IMAGE_TAG=`git describe --tags HEAD`
+          - IMAGE_NAME="${REGISTRY_SERVER}/prj/ipfs-worker:${IMAGE_TAG}"
+          - npm install
+          - npm run build
+          - export DOCKER_BUILDKIT=1
+          - docker build -q -t $IMAGE_NAME . --ssh default=${BITBUCKET_SSH_KEY_FILE}
+
+          - docker push $IMAGE_NAME
+          - echo "Built and pushed $IMAGE_NAME"
+          - echo ${IMAGE_NAME}
+
+pipelines:
+  branches:
+    'dev':
+      - step:
+          <<: *set-environment
+          script:
+            - /bin/bash ./scripts/pipeline/set-environment.sh "dev"
+      - step: *build-and-push
+    'staging':
+      - step:
+          <<: *set-environment
+          script:
+            - /bin/bash ./scripts/pipeline/set-environment.sh "staging"
+      - step: *build-and-push
+  tags:
+    '**':
+      - step:
+          <<: *set-environment
+          script:
+            - /bin/bash ./scripts/pipeline/set-environment.sh "prod"
+      - step: *build-and-push

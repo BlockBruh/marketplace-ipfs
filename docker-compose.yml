@@ -1,0 +1,65 @@
+version: "3.8"
+
+networks:
+  ipfs:
+    driver: bridge
+
+services:
+
+  ipfs:
+    container_name: ipfs
+    image: test
+    ports:
+      - '4001:4001'
+      - '5001:5001'
+    networks:
+      - ipfs
+    env_file:
+      - docker.env
+    depends_on:
+      - redis
+      - db
+      - log
+
+  redis:
+    container_name: redis
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    networks:
+      - ipfs
+    command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    volumes:
+      - redis:/data
+
+  db:
+    container_name: postgres
+    image: postgres:14.6-alpine
+    restart: always
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    networks:
+      - ipfs
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/postgres_init.sql:/docker-entrypoint-initdb.d/create_tables.sql # see: https://github.com/docker-library/docs/tree/master/postgres#initialization-scripts
+
+  log:
+    container_name: logger
+    image: prjdevacr.azurecr.io/prj/blockchain-logging-api:707d5a7
+    env_file:
+      - docker.logger.env
+    networks:
+      - ipfs
+    ports:
+      - '4004:4004'
+
+
+volumes:
+  redis:
+    driver: local
+  pgdata:
+    driver: local

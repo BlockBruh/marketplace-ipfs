@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package GrpcIpfs;
+
+service IpfsService {
+  rpc UploadIpfs (UploadIpfsRequest) returns (UploadIpfsResponse);
+}
+
+message UploadNFTRequest {
+  string title = 1;
+  int32 dropId = 2;
+  string description = 3;
+  string royaltiesPercent = 4;
+  string creatorName = 5;
+  string objectUri = 6;
+  string externalUrl = 7;
+  repeated Attribute attributes = 8;
+  Utility utilityData = 9;
+}
+
+message UploadIpfsRequest {
+  repeated UploadNFTRequest uploadNFTRequests = 1;
+}
+
+message UploadNFTResponse {
+  int32 dropId = 1;
+  string mediaHashUri = 2;
+  string metadataHashUri = 3;
+  string uploadStatus = 4;
+}
+
+message UploadIpfsResponse {
+  repeated UploadNFTResponse uploadNFTResponses = 1;
+}
+
+message Attribute {
+  string displayType = 1;
+  string traitType = 2;
+  string value = 3;
+}
+
+message Utility {
+  string type = 1;
+  string description = 2;
+  repeated UtilityProperty properties = 3;
+  int32 expiry = 4;
+  string tAndCUrl = 5;
+}
+
+message UtilityProperty {
+  string name = 1;
+  string value = 2;
+}
